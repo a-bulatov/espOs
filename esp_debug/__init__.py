@@ -1,0 +1,2 @@
+def osdebug(mode):
+    pass
