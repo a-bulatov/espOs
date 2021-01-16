@@ -1,5 +1,5 @@
 from .system import System
-import threading
+import threading, time
 
 class Pin():
     IN, OUT, OPEN_DRAIN = range(3)
@@ -56,30 +56,33 @@ class Timer():
 
     def __init__(self, id):
         self.__id = id
-        self.__timer = None
+        self.timer = None
+        self.mode = None
+        self.callback = None
+        self.period = None
+        self.tick = None
 
     def init(self, *, mode=PERIODIC, period=- 1, callback=None):
-        self.__mode = mode
-        self.__callback = callback
-        self.__period = period
-        self.__tick =
-        if self.__timer is None:
-            self.__timer = threading.Thread(target=self.process)
-            self.__timer.start()
+        self.mode = mode
+        self.callback = callback
+        self.period = period
+        self.tick = time.time()*1000
+        if self.timer is None:
+            self.timer = threading.Thread(target=self.process)
+            self.timer.start()
 
     def process(self):
-        try:
-            try:
-                if self.__callback:
-                    self.__callback()
-            finally:
-                if self.__mode == Timer.ONE_SHOT:
-                    self.__timer.cancel()
-                    self.__timer = None
-                else:
-                    self.__timer.start()
-        except Exception as e:
-            s = '\n\n' + e.__class__.__name__ + '\n'
-            s += '\n'.join(str(x) for x in e.args)
-            with open('error.txt', 'a') as f:
-                f.write(s)
+        while True:
+            if self.tick and (time.time()*1000 - self.tick)>=self.period:
+                try:
+                    if self.mode == Timer.ONE_SHOT:
+                        self.tick = None
+                    else:
+                        self.tick = time.time() * 1000
+                    if self.callback:
+                        self.callback()
+                except Exception as e:
+                    s = '\n\n' + e.__class__.__name__ + '\n'
+                    s += '\n'.join(str(x) for x in e.args)
+                    with open('error.txt', 'a') as f:
+                        f.write(s)
