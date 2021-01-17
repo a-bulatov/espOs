@@ -1,7 +1,7 @@
 from .system import System
 import threading, time
 
-class Pin():
+class Pin:
     IN, OUT, OPEN_DRAIN = range(3)
     PULL_UP = 1
     IRQ_RISING = 1
@@ -51,7 +51,7 @@ class Pin():
         self.__pin['value'] = 0
 
 
-class Timer():
+class Timer:
     ONE_SHOT, PERIODIC = range(2)
 
     def __init__(self, id):
@@ -86,3 +86,16 @@ class Timer():
                     s += '\n'.join(str(x) for x in e.args)
                     with open('error.txt', 'a') as f:
                         f.write(s)
+
+class UART:
+    def __init__(self, id, baud=9600):
+        pass
+
+    def init(self, baudrate=9600, bits=8, parity=None, stop=1):
+        pass
+
+    def read(self, nbytes=None):
+        pass
+
+    def write(self, buf):
+        pass

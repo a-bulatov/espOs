@@ -60,8 +60,9 @@ class _System:
             self.__config = None
             self.__config = self.config
             self.__http = {}
+            self.__lib = {}
             init_network(STA=self.__config.get('STA'), AP=self.__config.get('AP'))
-            self.__config['LoopInterval'] = self.__config.get('LoopInterval', 100)
+            self.__config['LoopInterval'] = int(self.__config.get('LoopInterval', 100))
             logic = self.__config.get('Logic')
             if logic is None:
                 lst = uos.listdir('logics')
@@ -71,27 +72,33 @@ class _System:
                     raise Exception('Logic is not defined')
             if logic.endswith('.py'):
                 logic = logic[:-3]
-            self.__logic = __import__('logics.' + logic)
-            self.__logic = getattr(self.__logic, logic)
-            lst = dir(self.__logic)
-            if 'setup' in lst and 'loop' in lst:
-                self.__logic.setup(self)
-                # проверяем что наинициализировали
-                if self.__http != {}:
-                    lst = self.__http
-                    s = self.__config.get('HTTP', {})
-                    import lib.HTTP as HTTP
-                    self.__http = HTTP.Http(
-                        port=s.get("Port", 80),
-                        address=s.get("Bind", "0.0.0.0"),
-                        system=self
-                    )
-                    for x in lst:
-                        self.__http.set_handler(x, lst[x])
-                # запуск таймера
-                self.__timer = machine.Timer(0)
-                self.__prev_ms = time.ticks_ms()
-                self.__timer.init(period=10, mode=machine.Timer.PERIODIC, callback=self.handler)
+            if '.' in logic:
+                logic = logic.split('.')
+                logic = getattr(getattr(__import__('logics.' + logic[0]), logic[0]), logic[1])
+                self.__logic = logic(self)
+            else:
+                self.__logic = __import__('logics.' + logic)
+                self.__logic = getattr(self.__logic, logic)
+                lst = dir(self.__logic)
+                if 'setup' in lst and 'loop' in lst:
+                    self.__logic.setup(self)
+                    self.__logic = self.__logic.loop
+            # проверяем что наинициализировали
+            if self.__http != {}:
+                lst = self.__http
+                s = self.__config.get('HTTP', {})
+                import lib.HTTP as HTTP
+                self.__http = HTTP.Http(
+                    port=s.get("Port", 80),
+                    address=s.get("Bind", "0.0.0.0"),
+                    system=self
+                )
+                for x in lst:
+                    self.__http.set_handler(x, lst[x])
+            # запуск таймера
+            self.__timer = machine.Timer(0)
+            self.__prev_ms = time.ticks_ms()
+            self.__timer.init(period=10, mode=machine.Timer.PERIODIC, callback=self.handler)
         except Exception as e:
             write_error(e)
 
@@ -105,7 +112,7 @@ class _System:
         if x < 0 or x >= self.__config['LoopInterval']:
             self.__prev_ms = time.ticks_ms()
             try:
-                self.__logic.loop(self)
+                self.__logic(self)
             except Exception as e:
                 write_error(e)
 
@@ -131,6 +138,11 @@ class _System:
             self.__http[request_mask] = callback
         else:
             self.__http.set_handler(request_mask, callback)
+
+    def lib_init(self, name:str, *args, **kwargs):
+        x = name.rsplit('.', 1)
+        cla = getattr(getattr(__import__('lib.'+x[0]), x[0]), x[1])
+        self.__lib[name] = cla(*args, **kwargs)
 
 
 SYSTEM = None
